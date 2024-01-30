@@ -1,6 +1,11 @@
 import treecablecalc as tcc
 from pathlib import Path
+import numpy as np
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
 
+from kj_logger import get_logger
 
 from treecablecalc.classes.measurement import Measurement
 
@@ -15,15 +20,11 @@ if __name__ == "__main__":
     db_name = "TreeCableCalc_Stuttgart_2023-12-08.db"
     source_db = data_path / db_name
 
-    tcc_working_directory = working_directory / 'TCC'
-    CONFIG, DATA_MANAGER, DATABASE_MANAGER, PLOT_MANAGER = tcc.setup(working_directory=str(tcc_working_directory), log_level="DEBUG")
+    CONFIG, LOG_MANAGER, DATA_MANAGER, DATABASE_MANAGER, PLOT_MANAGER = tcc.setup(working_directory=str(working_directory))
     DATABASE_MANAGER.duplicate(database_path=str(source_db))
     DATABASE_MANAGER.connect(db_name=str("test.db"))
     ms = Measurement()
 
 
 
-import numpy as np
-import pandas as pd
-import seaborn as sns
-import matplotlib.pyplot as plt
+

@@ -15,9 +15,9 @@ class Config(CoreConfig):
     # Override default working directory specific
     default_working_directory = r"C:\kyellsen\006_Packages\treecablecalc\working_directory_tcc"
 
-    def __init__(self, working_directory: Optional[str] = None, log_level: Optional[str] = None):
+    def __init__(self, working_directory: Optional[str] = None):
         """
         Initializes the configuration settings, building upon the core configuration.
 
         """
-        super().__init__(working_directory, log_level)
+        super().__init__(f"{working_directory}/{self.package_name_short}")

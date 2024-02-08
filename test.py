@@ -1,13 +1,18 @@
-import treecablecalc as tcc
 from pathlib import Path
 import numpy as np
 import pandas as pd
-import seaborn as sns
+import sys
+from typing import List, Tuple, Dict
+
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 from kj_logger import get_logger
 
+import treecablecalc as tcc
 from treecablecalc.classes.measurement import Measurement
+from treecablecalc.classes.series import Series
+from treecablecalc.classes.system import System
 
 
 # Beispiel für die Verwendung
@@ -22,9 +27,10 @@ if __name__ == "__main__":
 
     CONFIG, LOG_MANAGER, DATA_MANAGER, DATABASE_MANAGER, PLOT_MANAGER = tcc.setup(working_directory=str(working_directory))
     DATABASE_MANAGER.duplicate(database_path=str(source_db))
-    DATABASE_MANAGER.connect(db_name=str("test.db"))
-    ms = Measurement()
+    DATABASE_MANAGER.connect(db_name=str(db_name))
+    m_list = DATABASE_MANAGER.load(class_name=Measurement)
 
-
+    m: Measurement = m_list[0]
+    sys: System = m.system
 
 

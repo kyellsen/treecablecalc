@@ -9,16 +9,16 @@ with open('README.md', 'r', encoding='utf-8') as f:
 
 
 setup(
-    name="dummy",
+    name="treecablecalc",
     version="1.0.0",
     packages=find_packages(),
     install_requires=requirements,
     author="Kyell Jensen",
     author_email="mail@kyelljensen.de",
-    description="Dummy Beschreibung",
+    description="TreeCableCalc Beschreibung",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/kyelljensen/dummy",
+    url="https://github.com/kyelljensen/treecablecalc",
     classifiers=[
         "Programming Language :: Python :: 3.11",
         "License :: OSI Approved :: Apache Software License",

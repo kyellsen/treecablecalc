@@ -8,34 +8,22 @@ logger = get_logger(__name__)
 
 class BaseClass(CoreBaseClass):
     __abstract__ = True
-    _config = None
-    _data_manager = None
-    _database_manager = None
-    _plot_manager = None
 
     def __init__(self):
         super().__init__()
 
-    @property
-    def CONFIG(self):
-        if self._config is None:
-            self._config = treecablecalc.CONFIG
-        return self._config
+    @classmethod
+    def get_config(cls):
+        return treemotion.CONFIG
 
-    @property
-    def DATA_MANAGER(self):
-        if self._data_manager is None:
-            self._data_manager = treecablecalc.DATA_MANAGER
-        return self._data_manager
+    @classmethod
+    def get_data_manager(cls):
+        return treemotion.DATA_MANAGER
 
-    @property
-    def DATABASE_MANAGER(self):
-        if self._database_manager is None:
-            self._database_manager = treecablecalc.DATABASE_MANAGER
-        return self._database_manager
+    @classmethod
+    def get_database_manager(cls):
+        return treemotion.DATABASE_MANAGER
 
-    @property
-    def PLOT_MANAGER(self):
-        if self._plot_manager is None:
-            self._plot_manager = treecablecalc.PLOT_MANAGER
-        return self._plot_manager
+    @classmethod
+    def get_plot_manager(cls):
+        return treemotion.PLOT_MANAGER

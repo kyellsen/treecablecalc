@@ -1,5 +1,7 @@
-from typing import Tuple, Optional
+from typing import Tuple, Optional, Any
 from kj_logger import get_logger, LogManager, LOG_MANAGER
+
+from .config import Config
 from kj_core import DataManager
 from kj_core import DatabaseManager
 from kj_core import PlotManager
@@ -12,8 +14,8 @@ DATABASE_MANAGER = None
 PLOT_MANAGER = None
 
 
-def setup(working_directory: Optional[str] = None, log_level: str = "info",
-          safe_logs_to_file: bool = True) -> Tuple[Config, LogManager, DataManager, DatabaseManager, PlotManager]:
+def setup(working_directory: Optional[str] = None, log_level="info", safe_logs_to_file=True) -> tuple[
+    Config, LogManager, DataManager, DatabaseManager, PlotManager]:
     """
     Set up the treecablecalc package with specific configurations.
 
@@ -26,18 +28,18 @@ def setup(working_directory: Optional[str] = None, log_level: str = "info",
 
     LOG_MANAGER.update_config(working_directory, log_level, safe_logs_to_file)
 
+    logger = get_logger(__name__)
+
     CONFIG = Config(working_directory)
 
     name = CONFIG.package_name
     name_s = CONFIG.package_name_short
 
-    logger = get_logger(__name__)
     logger.info(f"{name_s}: Setup {name} package!")
-
     DATA_MANAGER = DataManager(CONFIG)
 
     # Listen to changes on Attribut-"data" for all classes of type CoreDataClass
-    # DATA_MANAGER.register_listeners([... ### ...])
+    # DATA_MANAGER.register_listeners([]) # add DataClasses to list
 
     DATABASE_MANAGER = DatabaseManager(CONFIG)
 

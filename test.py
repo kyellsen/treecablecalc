@@ -11,6 +11,7 @@ from kj_logger import get_logger
 
 import treecablecalc as tcc
 from treecablecalc.classes.measurement import Measurement
+from treecablecalc.classes.measurement_version import MeasurementVersion
 from treecablecalc.classes.series import Series
 from treecablecalc.classes.system import System
 
@@ -25,12 +26,12 @@ if __name__ == "__main__":
     db_name = "TreeCableCalc_Stuttgart_2023-12-08.db"
     source_db = data_path / db_name
 
-    CONFIG, LOG_MANAGER, DATA_MANAGER, DATABASE_MANAGER, PLOT_MANAGER = tcc.setup(working_directory=str(working_directory))
-    DATABASE_MANAGER.duplicate(database_path=str(source_db))
+    CONFIG, LOG_MANAGER, DATA_MANAGER, DATABASE_MANAGER, PLOT_MANAGER = tcc.setup(working_directory=str(working_directory), log_level="debug")
+    #DATABASE_MANAGER.duplicate(database_path=str(source_db))
     DATABASE_MANAGER.connect(db_name=str(db_name))
-    m_list = DATABASE_MANAGER.load(class_name=Measurement)
+    series_list: List[Measurement] = DATABASE_MANAGER.load(class_name=Series)
+    s1 = series_list[0]
+    s1.method_for_all_children(method_name="load_from_csv", measurement_version_name="lala", update_existing=True)
 
-    m: Measurement = m_list[0]
-    sys: System = m.system
 
 

@@ -8,6 +8,8 @@ from kj_core import PlotManager
 
 from .config import Config
 
+from .classes.data_tcc import DataTCC
+
 CONFIG = None
 DATA_MANAGER = None
 DATABASE_MANAGER = None
@@ -38,8 +40,8 @@ def setup(working_directory: Optional[str] = None, log_level="info", safe_logs_t
     logger.info(f"{name_s}: Setup {name} package!")
     DATA_MANAGER = DataManager(CONFIG)
 
-    # Listen to changes on Attribut-"data" for all classes of type CoreDataClass
-    # DATA_MANAGER.register_listeners([]) # add DataClasses to list
+    #Listen to changes on Attribut-"data" for all classes of type CoreDataClass
+    DATA_MANAGER.register_listeners([DataTCC]) # add DataClasses to list
 
     DATABASE_MANAGER = DatabaseManager(CONFIG)
 

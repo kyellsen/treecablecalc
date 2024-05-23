@@ -16,7 +16,8 @@ class DataTCC(CoreDataClass, BaseClass):
                                     nullable=False)
     tempdrift_method = Column(String)
 
-    def __init__(self, data_id: int = None, data: pd.DataFrame = None, data_filepath: str = None, data_changed: bool = False, datetime_added=None,
+    def __init__(self, data_id: int = None, data: pd.DataFrame = None, data_filepath: str = None,
+                 data_changed: bool = False, datetime_added=None,
                  datetime_last_edit=None, measurement_version_id: int = None):
         CoreDataClass.__init__(self, data_id=data_id, data=data, data_filepath=data_filepath, data_changed=data_changed,
                                datetime_added=datetime_added, datetime_last_edit=datetime_last_edit)

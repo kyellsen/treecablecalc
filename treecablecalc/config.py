@@ -33,13 +33,38 @@ class Config(CoreConfig):
 
     class MeasurementVersion:
         measurement_version_name_default = "raw"
+        filter_method_x = "mean"
+        filter_method_f = "mean"
+        filter_window_x = 11
+        filter_window_f = 31
+
+        peak_height = 80
+        peak_prominence = 10
+        peak_distance = 50
+        peak_width = 40
+        valley_height = -400
+        valley_prominence = 10
+        valley_distance = 40
+        valley_width = 50
+
+        first_drop_peak_height = 16
+        first_drop_peak_prominence = 4
+        first_drop_peak_distance = None
+        first_drop_peak_width = 35
+
+        valide_selection_mode = ["default", "inc_preload", "exc_preload"]
+        valide_selection_until = ["end", "f_max", "first_drop"]
+
+        param_e_at_load_ztv_values = [5, 10, 20, 50, 100]
+        param_e_by_f_values = [2, 4, 8, 16]
+
 
     class DataTCC:
         data_directory = "data_tcc"
 
         columns_to_use = ["Weg_Time [s]", "Weg [mm]", "Kraft [kN]"]  # Don´t use "Kraft_Time [s]"
         time_column = "Weg_Time [s]"  # "Time" is the index! "Kraft_Time [s]" and "Weg_Time [s]" are identical. Read only one.
-        dtype_dict = {"Weg [mm]": np.float64, "Kraft [kN]": np.float64}
+        dtype_dict = {"Weg [mm]": np.float32, "Kraft [kN]": np.float32}
 
         rename_dict = {"Weg [mm]": "x", "Kraft [kN]": "f"}
 

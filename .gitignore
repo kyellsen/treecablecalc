@@ -1,2 +1,4 @@
 .idea/
 treecablecalc.egg-info/
+build/
+dist/

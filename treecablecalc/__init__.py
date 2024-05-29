@@ -50,3 +50,33 @@ def setup(working_directory: Optional[str] = None, log_level="info", safe_logs_t
     logger.info(f"{name_s}: {name} setup completed.")
 
     return CONFIG, LOG_MANAGER, DATA_MANAGER, DATABASE_MANAGER, PLOT_MANAGER
+
+def help():
+    """
+    Provides detailed guidance on setting up and using the treecablecalc package.
+
+    Setup:
+        The setup function initializes the treecablecalc package with user-defined settings.
+        It configures logging, data management, database management, plotting, and the operational environment for data analysis.
+
+        Example Usage:
+            config, log_manager, data_manager, database_manager, plot_manager = setup('/path/to/directory', 'debug', safe_logs_to_file=True)
+
+    Main Components:
+        DataTCC:
+            Represents data specific to the Tree Cable Calculation (TCC) experiments, including measurement and metadata.
+
+    Managers:
+        DataManager:
+            Manages the data flow within the package, including registering listeners for data changes.
+
+        DatabaseManager:
+            Handles database interactions, ensuring efficient data storage and retrieval.
+
+        PlotManager:
+            Manages the creation and customization of plots for data visualization.
+
+    Further Information:
+        For detailed API documentation, usage examples, and more, refer to the package documentation or visit the GitHub repository.
+    """
+    print(help.__doc__)

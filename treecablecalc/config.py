@@ -58,7 +58,6 @@ class Config(CoreConfig):
         param_e_at_load_ztv_values = [5, 10, 20, 50, 100]
         param_e_by_f_values = [2, 4, 8, 16]
 
-
     class DataTCC:
         data_directory = "data_tcc"
 

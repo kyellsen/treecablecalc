@@ -82,6 +82,14 @@ class Measurement(BaseClass):
         """
         return f"Measurement(id={self.measurement_id}, series_id={self.series_id})"
 
+    def __repr__(self) -> str:
+        """
+        Provides a detailed string representation of the Measurement instance for debugging.
+
+        :return: A detailed string representation of the Measurement instance.
+        """
+        return f"<Measurement(measurement_id={self.measurement_id}, series_id={self.series_id})>"
+
     @property
     def csv_filepath(self) -> str:
         """
@@ -183,17 +191,69 @@ class Measurement(BaseClass):
         return None
 
     def load_with_features(self, selection_mode: str = "default", selection_until: str = "end",
-                           measurement_version_name: str = None, update_existing=True,
-                           filter=True, null_offset_f=True, plot_filter=False, plot_extrema=False, plot_selection=False,
-                           plot_f_vs_e=False, plot_fit_model=False) -> Optional[MeasurementVersion]:
+                           measurement_version_name: str = None, update_existing=False,
+                           filter=True, null_offset_f=True, fit_model=True, plot_filter=False, plot_extrema=False,
+                           plot_selection=False, plot_f_vs_e=False, plot_fit_model=False) -> Optional[MeasurementVersion]:
+        """
+        Load a MeasurementVersion object with specified features and configurations.
+
+        Parameters
+        ----------
+        selection_mode : str, optional
+            The mode for selecting data. Valid options are ["default", "inc_preload", "exc_preload"].
+            Default is "default".
+        selection_until : str, optional
+            The point until which selection is done. Valid options are ["end", "f_max", "first_drop"].
+            Default is "end".
+        measurement_version_name : str, optional
+            Name of the measurement version. If None, it will be generated based on selection_mode and selection_until.
+        update_existing : bool, optional
+            Whether to update existing data. Default is True.
+        filter : bool, optional
+            Whether to apply filtering on the data. Default is True.
+        null_offset_f : bool, optional
+            Whether to nullify offset forces. Default is True.
+        fit_model : bool, optional
+            Whether to fit poly1d model to data. Only available if selection_until is "first_drop". Default is True.
+        plot_filter : bool, optional
+            Whether to plot the filter process. Default is True.
+        plot_extrema : bool, optional
+            Whether to plot the extrema calculation process. Default is True.
+        plot_selection : bool, optional
+            Whether to plot the selection process. Default is True.
+        plot_f_vs_e : bool, optional
+            Whether to plot force vs. extension. Default is True.
+        plot_fit_model : bool, optional
+            Whether to plot the fit model. Default is True.
+
+        Returns
+        -------
+        Optional[MeasurementVersion]
+            The loaded and processed MeasurementVersion object, or None if an error occurs.
+
+        Raises
+        ------
+        ValueError
+            If `selection_mode` or `selection_until` is not in the valid options.
+
+        Notes
+        -----
+        - This method handles the complete pipeline from loading raw data, applying filters,
+          calculating features, and plotting various stages of the data processing.
+        - The `MeasurementVersion` object is updated in place with various processing steps
+          including filtering, offset nullification, feature calculation, extrema calculation,
+          and selection based on preload conditions.
+        - Valid options for `selection_mode` are ["default", "inc_preload", "exc_preload"].
+        - Valid options for `selection_until` are ["end", "f_max", "first_drop"].
+        """
         if measurement_version_name is None:
             measurement_version_name = f"{selection_mode}_until_{selection_until}"
 
         config = self.get_config().MeasurementVersion
         if selection_mode not in config.valide_selection_mode:
-            raise ValueError
+            raise ValueError("Invalid selection_mode. Valid options are: " + str(config.valide_selection_mode))
         if selection_until not in config.valide_selection_until:
-            raise ValueError
+            raise ValueError("Invalid selection_until. Valid options are: " + str(config.valide_selection_until))
 
         mv: MeasurementVersion = self.load_from_csv(measurement_version_name, update_existing, load_dont_use=False)
         if filter:
@@ -218,21 +278,120 @@ class Measurement(BaseClass):
         if plot_f_vs_e:
             mv.plot_f_vs_e(plot_raw=True)
 
-        if selection_until == "first_drop":
+        if selection_until == "first_drop" and fit_model:
             mv.fit_model(plot=plot_fit_model, inplace=True, auto_commit=True)
 
         return mv
 
-    def load_preconfigured(self):
-        self.load_with_features(selection_mode="default", selection_until="end")
-        self.load_with_features(selection_mode="inc_preload", selection_until="first_drop")
-        self.load_with_features(selection_mode="exc_preload", selection_until="first_drop")
-        self.load_with_features(selection_mode="inc_preload", selection_until="f_max")
-        self.load_with_features(selection_mode="exc_preload", selection_until="f_max")
+    def load_preconfigured(self, update_existing=True, filter=True, null_offset_f=True, fit_model=True,
+                           plot_filter=True, plot_extrema=True, plot_selection=True, plot_f_vs_e=True,
+                           plot_fit_model=True):
+        """
+        Load multiple MeasurementVersion objects with preconfigured settings.
 
-    def get_param_df(self):
-        dict_list_interp1 = [mv.get_params_dict(method="interp1d") for mv in self.measurement_version]
-        dict_list_poly1d = [mv.get_params_dict(method="poly1d") for mv in self.measurement_version]
-        dict_list = dict_list_interp1 + dict_list_poly1d
+        Parameters
+        ----------
+        update_existing : bool, optional
+            Whether to update existing data. Default is True.
+        filter : bool, optional
+            Whether to apply filtering on the data. Default is True.
+        null_offset_f : bool, optional
+            Whether to nullify offset forces. Default is True.
+        fit_model : bool, optional
+            Whether to fit poly1d model to data. Only available if selection_until is "first_drop". Default is True.
+        plot_filter : bool, optional
+            Whether to plot the filter process. Default is True.
+        plot_extrema : bool, optional
+            Whether to plot the extrema calculation process. Default is True.
+        plot_selection : bool, optional
+            Whether to plot the selection process. Default is True.
+        plot_f_vs_e : bool, optional
+            Whether to plot force vs. extension. Default is True.
+        plot_fit_model : bool, optional
+            Whether to plot the fit model. Default is True.
+
+        Notes
+        -----
+        - This method calls `load_with_features` five times with different `selection_mode` and `selection_until`
+          parameters to load and process the data in various predefined configurations.
+        - All other plotting and processing options are passed through to `load_with_features` and apply to all calls.
+        """
+        configurations = [
+            ("default", "end"),
+            ("inc_preload", "first_drop"),
+            ("exc_preload", "first_drop"),
+            ("inc_preload", "f_max"),
+            ("exc_preload", "f_max"),
+        ]
+
+        for selection_mode, selection_until in configurations:
+            self.load_with_features(selection_mode=selection_mode, selection_until=selection_until,
+                                    update_existing=update_existing, filter=filter, null_offset_f=null_offset_f,
+                                    fit_model=fit_model,
+                                    plot_filter=plot_filter, plot_extrema=plot_extrema, plot_selection=plot_selection,
+                                    plot_f_vs_e=plot_f_vs_e, plot_fit_model=plot_fit_model)
+
+    def get_param_df(self, use_interp1d: bool = True, use_poly1d: bool = True,
+                     measurement_version_names: Optional[List[str]] = None) -> pd.DataFrame:
+        """
+        Generate a DataFrame containing parameters from specified MeasurementVersion objects using specified methods.
+
+        This method retrieves parameters using the specified methods ('interp1d' and/or 'poly1d')
+        from each `MeasurementVersion` object whose name is in the `measurement_version_names` list.
+        If no specific names are provided, parameters from all `MeasurementVersion` objects are retrieved.
+        The parameters are combined into a single DataFrame.
+
+        Args:
+            use_interp1d (bool): Whether to use the 'interp1d' method.
+            use_poly1d (bool): Whether to use the 'poly1d' method.
+            measurement_version_names (Optional[List[str]]): The list of names of `MeasurementVersion` objects for which
+                                                            to generate the parameter dictionaries. If None, all
+                                                            `MeasurementVersion` objects are used.
+
+        Returns
+        -------
+        pd.DataFrame
+            A DataFrame containing parameters from the specified `MeasurementVersion` objects using the specified methods.
+
+        Notes
+        -----
+        - This method calls `get_params_dict` on each `MeasurementVersion` object with the specified methods
+          to collect parameter dictionaries.
+        - If `poly1d` is not available for a `MeasurementVersion` object, a warning is logged, and the dictionary
+          for that method is not included.
+        - The resulting dictionaries are concatenated into a single DataFrame.
+        """
+        if not use_interp1d and not use_poly1d:
+            logger.error("At least one method ('interp1d' or 'poly1d') must be selected.")
+            return pd.DataFrame()
+
+        dict_list = []
+
+        # Filter measurement versions by their names, or use all if no specific names provided
+        if measurement_version_names is None:
+            measurement_versions = self.measurement_version
+        else:
+            measurement_versions = [mv for mv in self.measurement_version if mv.measurement_version_name in measurement_version_names]
+
+        for mv in measurement_versions:
+            if use_interp1d:
+                try:
+                    params_dict = mv.get_params_dict(method="interp1d")
+                    if params_dict:
+                        dict_list.append(params_dict)
+                except ValueError as ve:
+                    logger.warning(f"ValueError for {mv} with method 'interp1d': {ve}")
+                except Exception as e:
+                    logger.error(f"Error getting params_dict for {mv} with method 'interp1d': {e}")
+            if use_poly1d:
+                try:
+                    params_dict = mv.get_params_dict(method="poly1d")
+                    if params_dict:
+                        dict_list.append(params_dict)
+                except ValueError as ve:
+                    logger.warning(f"Warning for {mv} with method 'poly1d', don't append params_dict: {ve}")
+                except Exception as e:
+                    logger.error(f"Error getting params_dict for {mv} with method 'poly1d': {e}")
+
         dict_df = pd.DataFrame(dict_list)
         return dict_df

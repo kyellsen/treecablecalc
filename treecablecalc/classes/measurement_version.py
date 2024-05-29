@@ -1,3 +1,4 @@
+from typing import Callable
 from scipy.interpolate import interp1d
 from scipy.signal import find_peaks
 
@@ -55,6 +56,14 @@ class MeasurementVersion(BaseClass):
         return (f"{self.__class__.__name__}: measurement_version_id: {self.measurement_version_id}, "
                 f"measurement_version_name: {self.measurement_version_name}, measurement_id: {self.measurement_id}")
 
+    def __repr__(self) -> str:
+        """
+        Provides a detailed string representation of the MeasurementVersion instance for debugging.
+
+        :return: A detailed string representation of the MeasurementVersion instance.
+        """
+        return f"<MeasurementVersion(measurement_version_id={self.measurement_version_id}, measurement_version_name={self.measurement_version_name}, measurement_id={self.measurement_id})>"
+
     @classmethod
     def create_from_csv(cls, csv_filepath: str, measurement_id: int, measurement_version_name: str = None) \
             -> Optional['MeasurementVersion']:
@@ -88,7 +97,7 @@ class MeasurementVersion(BaseClass):
 
     def update_from_csv(self, csv_filepath: str) -> Optional['MeasurementVersion']:
         self.data_tcc = self.data_tcc.update_from_csv(csv_filepath)
-        logger.info(f"Updated new '{self}'")
+        logger.info(f"{self} - Updated from csv")
         return self
 
     def filter(self,
@@ -134,17 +143,17 @@ class MeasurementVersion(BaseClass):
             # Apply the filter methods
             if method_x:
                 data['x'] = valid_methods[method_x](data['x'], window_x)
-                logger.info(f"Applied {method_x} filter on 'x' with window {window_x}.")
+                logger.debug(f"Applied {method_x} filter on 'x' with window {window_x}.")
             if method_f:
                 data['f'] = valid_methods[method_f](data['f'], window_f)
-                logger.info(f"Applied {method_f} filter on 'f' with window {window_f}.")
+                logger.debug(f"Applied {method_f} filter on 'f' with window {window_f}.")
 
             # Drop missing values
             data.dropna(inplace=True)
-            logger.info(f"Filter successfully for {self}")
+            logger.debug(f"{self} filter successfully")
 
         except Exception as e:
-            logger.error(f"Filter Error for {self}, e: {e}")
+            logger.error(f"{self} filter Error, e: {e}")
             return None
 
         if plot:
@@ -166,10 +175,10 @@ class MeasurementVersion(BaseClass):
             f_mean_first_10 = data['f'][:mean_first_n].mean()  # to reduce force to null at beginn
             data['f'] = data['f'] - f_mean_first_10
 
-            logger.info(f"Nulloffset successfully for {self}")
+            logger.debug(f"{self} - Nulloffset successfully")
 
         except Exception as e:
-            logger.error(f"Nulloffset Error for {self}, e: {e}")
+            logger.error(f"{self} - Nulloffset Error, e: {e}")
             return None
 
         if inplace:
@@ -196,10 +205,10 @@ class MeasurementVersion(BaseClass):
                 data['raw_d'] = data['d'].astype(np.float32)
                 data['raw_e'] = data['e'].astype(np.float32)
 
-            logger.info(f"Features successfully for {self}")
+            logger.debug(f"{self} - Features successfully")
 
         except Exception as e:
-            logger.error(f"Features Error for {self}, e: {e}")
+            logger.error(f"{self} - Features Error, e: {e}")
             return None
 
         if inplace:
@@ -234,7 +243,7 @@ class MeasurementVersion(BaseClass):
             logger.warning(
                 f"mv_id: '{self.measurement_version_id}' found '{len(peaks_index)}' Peaks: {peaks_index.values}")
         else:
-            logger.info(f"mv_id: '{self.measurement_version_id}' found exactly 3 Peaks: {peaks_index.values}")
+            logger.debug(f"mv_id: '{self.measurement_version_id}' found exactly 3 Peaks: {peaks_index.values}")
 
         valleys, _ = find_peaks(np.array(data * -1),
                                 height=valley_height,
@@ -248,7 +257,7 @@ class MeasurementVersion(BaseClass):
             logger.warning(
                 f"mv_id: '{self.measurement_version_id}' found '{len(valleys_index)}' Valleys: {valleys_index.values}")
         else:
-            logger.info(f"mv_id: '{self.measurement_version_id}' found exactly 3 Valleys: {valleys_index.values}")
+            logger.debug(f"mv_id: '{self.measurement_version_id}' found exactly 3 Valleys: {valleys_index.values}")
 
         pre_tension_load = self.pre_tension_load * 1.1
         data = self.data["f"]
@@ -268,7 +277,7 @@ class MeasurementVersion(BaseClass):
         peaks_first_drop_index = data_above_threshold.index[peaks_first_drop]
         logger.debug(f"peaks_first_drop_index: {peaks_first_drop_index.values}")
         first_drop_index = peaks_first_drop_index[0]
-        logger.info(f"Found first_drop_index: {first_drop_index}")
+        logger.debug(f"Found first_drop_index: {first_drop_index}")
 
         if plot:
             self.plot_extrema(self.data, peaks_index, valleys_index, first_drop_index)
@@ -408,7 +417,7 @@ class MeasurementVersion(BaseClass):
             cable_model = polyfit_with_np(
                 x, y, degree_min, degree_max, desired_quality_r2)
 
-            logger.info(f"mv_id_{self.measurement_version_id} successfully fitted CableModel: {cable_model}")
+            logger.info(f"{self} - Successfully fitted CableModel: {cable_model}")
 
             if plot:
                 fig = plt_polyfit(x, y, cable_model)
@@ -426,9 +435,9 @@ class MeasurementVersion(BaseClass):
 
             return cable_model
         except Exception as e:
-            logger.error(f"{self} fitting failed, e: {e}")
+            logger.error(f"{self} - Fitting of poly1d failed, e: {e}")
 
-    def get_e_by_f(self, force: float, method: str = "poly1d") -> Optional[float]:
+    def get_e_by_f(self, force: float, method: str = "interp1d") -> Optional[float]:
         """
         Generic method to get elongation (e) for a given force (f) using a specified method name.
 
@@ -439,16 +448,30 @@ class MeasurementVersion(BaseClass):
         Returns:
             Optional[float]: The calculated elongation or None if not calculable.
         """
-        method_func = {
+        # Verify that the provided force is a valid number
+        if not isinstance(force, (int, float)):
+            logger.error(f"Invalid force value '{force}'. Must be a number.")
+            return None
+
+        # Dictionary mapping method names to their corresponding functions
+        methods: dict[str, Callable[[float], Optional[float]]] = {
             'interp1d': self.get_e_by_f_interp1d,
             'poly1d': self.get_e_by_f_poly1d
-        }.get(method)
+        }
 
+        method_func = methods.get(method)
+
+        # Check if the method is valid
         if method_func is None:
-            logger.error(f"Invalid method '{method}'.")
+            logger.error(f"Invalid method '{method}'. Available methods are 'interp1d' and 'poly1d'.")
             return None
-        else:
+
+        # Call the selected method and handle any potential errors
+        try:
             return method_func(force)
+        except Exception as e:
+            logger.error(f"Error calculating elongation with method '{method}': {e}")
+            return None
 
     def get_e_by_f_interp1d(self, force: float) -> Optional[float]:
         data = self.data.drop_duplicates(subset='f')
@@ -460,13 +483,13 @@ class MeasurementVersion(BaseClass):
         model = interp1d(f, e, kind='linear')
 
         if force < f.min() or force > f.max():
-            logger.warning(f"Force {force} not in the range of the measurement, returning NAN")
+            logger.warning(f"{self} - Force {force} not in the range of the measurement, returning NAN")
             return np.NAN
         return float(model(force))
 
     def get_e_by_f_poly1d(self, force: float) -> Optional[float]:
         if self.cable_model is None:
-            #logger.warning(f"Poly1d-Model not available. Call Method '{self.__class__.__name__}.fit_model' first.")
+            logger.warning(f"{self} - Poly1d-Model not available. Call Method '{self.__class__.__name__}.fit_model' first.")
             return np.NAN
 
         cable_model = self.cable_model
@@ -483,25 +506,49 @@ class MeasurementVersion(BaseClass):
         f = self.load_ztv * (percent / 100)
         e = self.get_e_by_f(f, method)
         if e is None:
-            logger.error("Elongation could not be calculated.")
+            logger.error(f"{self} Elongation could not be calculated.")
             return np.NAN
         return e
 
     def get_e_at_pre_tension_load(self, method: str = 'poly1d') -> float:
         e = self.get_e_by_f(self.pre_tension_load, method)
         if e is None:
-            logger.error("Elongation at pre-tension load could not be calculated.")
+            logger.error(f"{self} Elongation at pre-tension load could not be calculated.")
             return np.NAN
         return e
 
     def get_e_at_f_max(self, method: str = 'poly1d') -> float:
         e = self.get_e_by_f(self.f_max, method)
         if e is None:
-            logger.error("Elongation at max force could not be calculated.")
+            logger.error(f"{self} Elongation at max force could not be calculated.")
             return np.NAN
         return e
 
-    def get_params_dict(self, method: str = "poly1d", inplace: bool = True, auto_commit: bool = True):
+    def get_params_dict(self, method: str = "interp1d", inplace: bool = True, auto_commit: bool = True) -> Dict[
+        str, any]:
+        """
+        Generate a dictionary containing parameters using the specified method.
+
+        Args:
+            method (str): The method to use ('interp1d' or 'poly1d').
+            inplace (bool): Whether to store the dictionary in the instance.
+            auto_commit (bool): Whether to commit the changes to the database.
+
+        Returns
+        -------
+        Dict[str, any]
+            A dictionary containing the parameters.
+
+        Raises
+        ------
+        ValueError
+            If the method is 'poly1d' and self.cable_model is not available.
+        """
+        if method == "poly1d" and self.cable_model is None:
+            error_message = f"{self} - No Cable Model Type Poly1D available."
+            logger.warning(error_message)
+            raise ValueError(error_message)
+
         params_dict: Dict[str, any] = {
             "measurement_version_id": getattr(self, "measurement_version_id", None),
             "measurement_version_name": getattr(self, "measurement_version_name", None),
@@ -539,6 +586,7 @@ class MeasurementVersion(BaseClass):
 
         if auto_commit:
             self.get_database_manager().commit()
+
         return params_dict
 
     @staticmethod

@@ -21,7 +21,7 @@ from treecablecalc.classes.data_tcc import DataTCC
 if __name__ == "__main__":
     # Main
     main_path = Path(r"C:\kyellsen\005_Projekte\2023_TreeCableCalc")
-    analyse_name = r"2023_Kronensicherung_Stuttgart_2024-02-19"
+    analyse_name = r"2023_Kronensicherung_Stuttgart_2024-05-27"
     data_path = main_path / "021_Daten_Clean"  # Für alle Daten-Importe des Projektes gemeinsam
     working_directory = main_path / "030_Analysen" / analyse_name / "working_directory"  # Für alle Daten-Exporte des Projektes gemeinsam
     source_db_name = "TreeCableCalc_Stuttgart_2023-12-08.db"

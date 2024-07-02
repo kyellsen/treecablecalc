@@ -198,10 +198,11 @@ class CableCalculatorVersion(BaseClass):
             e_percent_by_f=self.e_percent_by_f,
             e_absolute_by_f=self.e_absolute_by_f,
             range_of_motion=self.range_of_motion,
-            system_name=self.cable_calculator.system.system if self.cable_calculator.system else None,
-            system_version_name=self.system_version.system_version_name if self.system_version else None
+            system_name=self.cable_calculator.system.system,
+            system_version_name=self.system_version.system_version_name
         )
 
-        # Display the plot
-        import matplotlib.pyplot as plt
-        plt.show()
+        plot_manager = self.get_plot_manager()
+        filename = f'system_id_{self.cable_calculator.system.system_id}_{self.cable_calculator.system.system}_{self.system_version.system_version_name}'
+        subdir = f"{self.system_version.system_version_name}/cable_calculator_version_plot_catenary_curve"
+        plot_manager.save_plot(fig, filename, subdir)

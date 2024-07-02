@@ -127,5 +127,4 @@ def plot_catenary_curve(curve: Tuple[np.ndarray, np.ndarray],
         plt.text(0, -1.75, additional_text, verticalalignment='top',
                  horizontalalignment='left', bbox=dict(facecolor='white', alpha=1))
     fig.tight_layout()
-    plt.show()
     return fig

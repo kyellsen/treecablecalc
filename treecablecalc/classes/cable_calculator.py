@@ -363,9 +363,10 @@ class CableCalculator(BaseClass):
             rope_length=self.rope_length,
             slack_absolute=self.slack_absolute,
             sag_vertical=self.sag_vertical,
-            system_name=self.system.system if self.system else None
+            system_name=self.system.system
         )
 
-        # Display the plot
-        import matplotlib.pyplot as plt
-        plt.show()
+        plot_manager = self.get_plot_manager()
+        filename = f'system_id_{self.system.system_id}_{self.system.system}'
+        subdir = f"{self.system_version_name}/cable_calculator_plot_catenary_curve"
+        plot_manager.save_plot(fig, filename, subdir)

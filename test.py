@@ -36,7 +36,7 @@ if __name__ == "__main__":
                         m.execute != "dont_use" and m.series.description == "2023-01-10_HAWK"]
     measurement_list = measurement_list[0:15]
 
-    plot_flag = False
+    plot_flag = True
 
     # for m in measurement_list:
     #     m.load_with_features(selection_mode="inc_preload", selection_until="first_drop",

@@ -122,7 +122,7 @@ def plt_extrema(data: pd.DataFrame, peaks: pd.DatetimeIndex, valleys: pd.Datetim
     return fig
 
 
-def plotly_f_vs_e(data: pd.DataFrame, plot_raw: bool = False):
+def plotly_f_vs_e(data: pd.DataFrame, plot_raw: bool = False, system_name: str = None):
     # Erstellung eines Plotly-Plots
     fig = go.Figure()  # Korrektur hier: Hinzufügen der Klammern ()
 
@@ -140,12 +140,11 @@ def plotly_f_vs_e(data: pd.DataFrame, plot_raw: bool = False):
                        line=dict(color='blue')))
 
     # Titel und Achsenbeschriftungen
-    fig.update_layout(title='Elongation over Force', xaxis_title='Elongation [%]', yaxis_title='Force [kN]')
-
+    fig.update_layout(title=f'Elongation over Force for {system_name}', xaxis_title='Elongation [%]', yaxis_title='Force [kN]')
     return fig
 
 
-def plt_f_vs_e(data: pd.DataFrame, plot_raw: bool = False):
+def plt_f_vs_e(data: pd.DataFrame, plot_raw: bool = False, system_name: str = None):
     # Optional: Setze Seaborn-Stil für verbesserte Ästhetik
     sns.set_style("whitegrid")
 
@@ -162,14 +161,12 @@ def plt_f_vs_e(data: pd.DataFrame, plot_raw: bool = False):
                 markeredgecolor='grey', color='blue', linestyle='-')
 
     # Titel und Achsenbeschriftungen setzen
-    ax.set_title('Elongation over Force')
+    ax.set_title(f'Elongation over Force for {system_name}')
     ax.set_xlabel('Elongation [%]')
     ax.set_ylabel('Force [kN]')
     ax.legend()  # Zeigt die Legende an
 
-    fig.tight_layout()  # Verbessert die Anordnung der Plot-Elemente
-
-    # Rückgabe der Figure, anstatt plt.show() aufzurufen
+    fig.tight_layout()
     return fig
 
 def plt_select_data(data: pd.DataFrame, select_data: pd.DataFrame):

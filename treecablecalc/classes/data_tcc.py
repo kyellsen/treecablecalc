@@ -14,7 +14,6 @@ class DataTCC(CoreDataClass, BaseClass):
     measurement_version_id = Column(Integer,
                                     ForeignKey('MeasurementVersion.measurement_version_id', onupdate='CASCADE'),
                                     nullable=False)
-    tempdrift_method = Column(String)
 
     def __init__(self, data_id: int = None, data: pd.DataFrame = None, data_filepath: str = None,
                  data_changed: bool = False, datetime_added=None,

@@ -140,7 +140,7 @@ class Measurement(BaseClass):
         """
         # Überprüfung, ob load_dont_use False ist und self.execute 'dont_use' entspricht.
         if not load_dont_use and self.execute == "dont_use":
-            logger.warning(f"Aborting operation for '{self}' as 'execute' is set to 'dont_use'.")
+            logger.warning(f"Aborting operation for '{self}' as 'execute' is set to 'dont_use'. Dont return a MeasurementVersion")
             return None
 
         logger.info(f"Start loading TCC data from CSV for '{self}'")
@@ -192,7 +192,7 @@ class Measurement(BaseClass):
 
     def load_with_features(self, selection_mode: str = "default", selection_until: str = "end",
                            measurement_version_name: str = None, update_existing=False,
-                           filter=True, null_offset_f=True, fit_model=True, plot_filter=False, plot_extrema=False,
+                           filter_data=True, null_offset_f=True, fit_model=True, plot_filter=False, plot_extrema=False,
                            plot_selection=False, plot_f_vs_e=False, plot_fit_model=False) -> Optional[MeasurementVersion]:
         """
         Load a MeasurementVersion object with specified features and configurations.
@@ -209,7 +209,7 @@ class Measurement(BaseClass):
             Name of the measurement version. If None, it will be generated based on selection_mode and selection_until.
         update_existing : bool, optional
             Whether to update existing data. Default is True.
-        filter : bool, optional
+        filter_data : bool, optional
             Whether to apply filtering on the data. Default is True.
         null_offset_f : bool, optional
             Whether to nullify offset forces. Default is True.
@@ -256,7 +256,11 @@ class Measurement(BaseClass):
             raise ValueError("Invalid selection_until. Valid options are: " + str(config.valide_selection_until))
 
         mv: MeasurementVersion = self.load_from_csv(measurement_version_name, update_existing, load_dont_use=False)
-        if filter:
+        if not mv:
+            logger.warning(f"{self} - load_from_csv a MeasurementVersion for measurement_version_name '{measurement_version_name}' is None ")
+            return
+
+        if filter_data:
             mv.filter(plot=plot_filter, inplace=True, auto_commit=True)
         if null_offset_f:
             mv.null_offset_f(inplace=True, auto_commit=True)
@@ -283,7 +287,7 @@ class Measurement(BaseClass):
 
         return mv
 
-    def load_preconfigured(self, update_existing=True, filter=True, null_offset_f=True, fit_model=True,
+    def load_preconfigured(self, update_existing=True, filter_data=True, null_offset_f=True, fit_model=True,
                            plot_filter=True, plot_extrema=True, plot_selection=True, plot_f_vs_e=True,
                            plot_fit_model=True):
         """
@@ -293,7 +297,7 @@ class Measurement(BaseClass):
         ----------
         update_existing : bool, optional
             Whether to update existing data. Default is True.
-        filter : bool, optional
+        filter_data : bool, optional
             Whether to apply filtering on the data. Default is True.
         null_offset_f : bool, optional
             Whether to nullify offset forces. Default is True.
@@ -326,7 +330,7 @@ class Measurement(BaseClass):
 
         for selection_mode, selection_until in configurations:
             self.load_with_features(selection_mode=selection_mode, selection_until=selection_until,
-                                    update_existing=update_existing, filter=filter, null_offset_f=null_offset_f,
+                                    update_existing=update_existing, filter_data=filter_data, null_offset_f=null_offset_f,
                                     fit_model=fit_model,
                                     plot_filter=plot_filter, plot_extrema=plot_extrema, plot_selection=plot_selection,
                                     plot_f_vs_e=plot_f_vs_e, plot_fit_model=plot_fit_model)
@@ -366,7 +370,6 @@ class Measurement(BaseClass):
             return pd.DataFrame()
 
         dict_list = []
-
         # Filter measurement versions by their names, or use all if no specific names provided
         if measurement_version_names is None:
             measurement_versions = self.measurement_version
@@ -393,5 +396,30 @@ class Measurement(BaseClass):
                 except Exception as e:
                     logger.error(f"Error getting params_dict for {mv} with method 'poly1d': {e}")
 
-        dict_df = pd.DataFrame(dict_list)
-        return dict_df
+        return pd.DataFrame(dict_list)
+
+    def get_summary_dict(self) -> Dict[str, any]:
+        """
+
+        """
+        obj_dict: Dict[str, any] = {
+            "measurement_id": getattr(self, "measurement_id", None),
+            "series_id": getattr(self, "series_id", None),
+            "sample_id": getattr(self, "measurement_id", None),
+            "system_name": getattr(self.system, "system", None),
+            "brand": getattr(self.system.brand, "brand_short", None),
+            "producer": getattr(self.system.cable.producer, "producer", None),
+            "lifespan": getattr(self.system.cable, "lifespan", None),
+            "load_ztv": getattr(self.system.cable, "load_ztv", None),
+            "pre_tension_load": getattr(self, "pre_tension_load", None),
+            "color": getattr(self.system.cable.color, "color", None),
+            "diameter": getattr(self.system.cable, "diameter", None),
+            "fiber_type": getattr(self.system.cable.fiber_type, "fiber_type", None),
+            "elongation_properties": getattr(self.system.cable.elongation_properties, "elongation_properties", None),
+            "expansion_insert_count": getattr(self, "expansion_insert_count", None),
+            "shock_absorber_count": getattr(self.system, "shock_absorber_count", None),
+            "failure_loc": getattr(self, "failure_loc", None),
+            "note": getattr(self, "note", None),
+        }
+
+        return obj_dict

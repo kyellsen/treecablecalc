@@ -55,8 +55,8 @@ class Config(CoreConfig):
         valide_selection_mode = ["default", "inc_preload", "exc_preload"]
         valide_selection_until = ["end", "f_max", "first_drop"]
 
-        param_e_at_load_ztv_values = [5, 10, 20, 50, 100]
-        param_e_by_f_values = [2, 4, 8, 16]
+        param_e_at_load_ztv_values = [5, 10, 20, 50, 100]  # kN
+        param_e_by_f_values = [2, 4, 8, 16]  # kN
 
     class DataTCC:
         data_directory = "data_tcc"

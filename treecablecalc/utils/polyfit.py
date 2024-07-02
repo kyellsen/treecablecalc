@@ -21,7 +21,6 @@ def polyfit_with_np(x: pd.Series, y: pd.Series, degree_min: int = 1, degree_max:
 
         if current_quality > best_quality_r2:
             best_quality_r2 = current_quality
-            best_degree = degree
             best_coeffs = coeffs
 
             if current_quality >= desired_quality:
@@ -35,7 +34,7 @@ def polyfit_with_np(x: pd.Series, y: pd.Series, degree_min: int = 1, degree_max:
 
     lower_bound, upper_bound = x.min(), x.max()
 
-    return CableModel(model=best_model, degree=best_degree, quality=best_quality_r2,
+    return CableModel(model=best_model, quality=best_quality_r2,
                       lower_bound=lower_bound, upper_bound=upper_bound)
 
 

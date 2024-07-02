@@ -27,6 +27,9 @@ class MeasurementVersion(BaseClass):
     measurement_version_id = Column(Integer, primary_key=True, autoincrement=True, unique=True)
     measurement_version_name = Column(String)
     measurement_id = Column(Integer, ForeignKey('Measurement.measurement_id', onupdate='CASCADE'), nullable=False)
+    cable_model_id = Column(Integer, ForeignKey('CableModel.cable_model_id', onupdate='CASCADE'), nullable=True)
+    system_version_id = Column(Integer, ForeignKey('SystemVersion.system_version_id', onupdate='CASCADE'),
+                               nullable=True)
 
     # Ändern Sie den Datentyp von 'model' in LargeBinary für die Serialisierung
     _params_dict = Column('param_dict', LargeBinary)
@@ -34,9 +37,10 @@ class MeasurementVersion(BaseClass):
     selection_mode = Column(String)
     selection_until = Column(String)
     null_offset = Column(Float)
+    filter_flag = Column(Boolean)
 
-    data_tcc = relationship("DataTCC", backref="measurement_version", uselist=False, cascade='all, delete-orphan')
-    cable_model = relationship("CableModel", backref="measurement_version", uselist=False, cascade='all, delete-orphan')
+    data_tcc = relationship("DataTCC", backref="measurement_version", lazy="joined", uselist=False,
+                            cascade='all, delete-orphan')
 
     def __init__(self, measurement_version_id=None, measurement_version_name=None, measurement_id=None,
                  data_tcc_id: int = None, selection_mode: str = "default", selection_until: str = "end"):
@@ -49,6 +53,7 @@ class MeasurementVersion(BaseClass):
         self.selection_mode = selection_mode
         self.selection_until = selection_until
         self.null_offset = None
+        self.filter_flag = False
         self._extrema_tuple = None
         self._params_dict = None
 
@@ -161,6 +166,7 @@ class MeasurementVersion(BaseClass):
 
         if inplace:
             self.data = data
+            self.filter_flag = True
 
         if auto_commit:
             self.get_database_manager().commit()
@@ -483,13 +489,14 @@ class MeasurementVersion(BaseClass):
         model = interp1d(f, e, kind='linear')
 
         if force < f.min() or force > f.max():
-            logger.warning(f"{self} - Force {force} not in the range of the measurement, returning NAN")
+            logger.info(f"{self} - Force {force} not in the range of the measurement, returning NAN")
             return np.NAN
         return float(model(force))
 
     def get_e_by_f_poly1d(self, force: float) -> Optional[float]:
         if self.cable_model is None:
-            logger.warning(f"{self} - Poly1d-Model not available. Call Method '{self.__class__.__name__}.fit_model' first.")
+            logger.info(
+                f"{self} - Poly1d-Model not available. Call Method '{self.__class__.__name__}.fit_model' first.")
             return np.NAN
 
         cable_model = self.cable_model
@@ -552,25 +559,28 @@ class MeasurementVersion(BaseClass):
         params_dict: Dict[str, any] = {
             "measurement_version_id": getattr(self, "measurement_version_id", None),
             "measurement_version_name": getattr(self, "measurement_version_name", None),
-            "measurement_id": getattr(self.measurement, "measurement_id", None),
-            "system_name": getattr(self.measurement.system, "system", None),
+            "measurement_id": getattr(self, "measurement_id", None),
+            "system_name": getattr(self, "system", None),
+            "brand": getattr(self, "brand_short", None),
             "selection_mode": getattr(self, "selection_mode", None),
             "selection_until": getattr(self, "selection_until", None),
+            "filter_flag": getattr(self, "filter_flag", None),
             "e_by_f_method": method,
-            "l_min": getattr(self, "l_min", None),
-            "l_max": getattr(self, "l_max", None),
             "null_offset": getattr(self, "null_offset", None),
             "d_min": getattr(self, "d_min", None),
             "d_max": getattr(self, "d_max", None),
-            "e_min": getattr(self, "e_min", None),
-            "e_max": getattr(self, "e_max", None),
+            "load_ztv": getattr(self, "load_ztv", None),
             "pre_tension_load": getattr(self, "pre_tension_load", None),
             "e_at_pre_tension_load": self.get_e_at_pre_tension_load(method),
-            "load_ztv": getattr(self, "load_ztv", None),
             "f_min": getattr(self, "f_min", None),
             "f_max": getattr(self, "f_max", None),
             "get_e_at_f_max": self.get_e_at_f_max(method),
-            "n": getattr(self, "count", None),
+            "count": getattr(self, "count", None),
+            "expansion_insert_count": getattr(self, "expansion_insert_count", None),
+            "shock_absorber_count": getattr(self.system, "shock_absorber_count", None),
+            "shock_absorber_l_delta": getattr(self, "shock_absorber_l_delta", None),
+            "failure_loc": getattr(self, "failure_loc", None),
+            "note": getattr(self, "note", None),
         }
 
         # Add values for e_at_load_ztv
@@ -589,72 +599,68 @@ class MeasurementVersion(BaseClass):
 
         return params_dict
 
-    @staticmethod
-    def _get_readable_param_name_flex(param: str) -> str:
-        """
-        Generates a readable long name for a given flexible parameter.
+    # @staticmethod
+    # def _get_readable_param_name_flex(param: str) -> str:
+    #     """
+    #     Generates a readable long name for a given flexible parameter.
+    #
+    #     Parameters:
+    #     - param (str): The parameter name.
+    #
+    #     Returns:
+    #     - str: The generated long name if the parameter matches known patterns,
+    #            else returns the original parameter name.
+    #     """
+    #     base_names: Dict[str, str] = {
+    #         "e_at_load_ztv": "Elongation at {} % Load-ZTV [%]",
+    #         "e_by_f": "Elongation at {} kN [%]",
+    #     }
+    #     parts = param.split("_")
+    #     if len(parts) > 1 and parts[-2] in base_names and parts[-1].isdigit():
+    #         base_name = "_".join(parts[:-1])
+    #         value = parts[-1]
+    #         return base_names[base_name].format(value)
+    #     return param
+    #
+    # def get_readable_param_name(self, param: str) -> str:
+    #     """
+    #     Returns the readable long form of a parameter.
+    #
+    #     If the parameter does not match any predefined or flexible naming patterns,
+    #     logs a warning and returns the original parameter name.
+    #
+    #     Parameters:
+    #     - param (str): The fixed or flexible parameter name.
+    #
+    #     Returns:
+    #     - str: The long form of the parameter.
+    #     """
+    #     fixed_params: Dict[str, str] = {
+    #         "measurement_version_id": "MeasurementVersion ID",
+    #         "measurement_version_name": "MeasurementVersion Name",
+    #         "measurement_id": "Measurement ID",
+    #         "system_name": "System Name",
+    #         "f_null_offset": "Force Null-Offset [kN]",
+    #         "d_min": "Delta Length min. [mm] (=0)",
+    #         "d_max": "Delta Length max. [mm]",
+    #         "pre_tension_load": "Pre-Tension-Load [kN]",
+    #         "get_e_at_pre_tension_load": "Elongation at Pre-Tension-Load",
+    #         "load_ztv": "Load-ZTV/MBL [kN]",
+    #         "f_min": "Force min. [kN]",
+    #         "f_max": "Force max. [kN]",
+    #         "get_e_at_f_max": "Elongation at Force max. [%]",
+    #         "n": "n-values (n)"
+    #     }
+    #
+    #     long_name = fixed_params.get(param, None)
+    #     if long_name:
+    #         return long_name
+    #     long_name = self._get_readable_param_name_flex(param)
+    #     if long_name == param:
+    #         logger.warning(f"Parameter name '{param}' could not be mapped to a long name.")
+    #     return long_name
 
-        Parameters:
-        - param (str): The parameter name.
-
-        Returns:
-        - str: The generated long name if the parameter matches known patterns,
-               else returns the original parameter name.
-        """
-        base_names: Dict[str, str] = {
-            "e_at_load_ztv": "Elongation at {} % Load-ZTV [%]",
-            "e_by_f": "Elongation at {} kN [%]",
-        }
-        parts = param.split("_")
-        if len(parts) > 1 and parts[-2] in base_names and parts[-1].isdigit():
-            base_name = "_".join(parts[:-1])
-            value = parts[-1]
-            return base_names[base_name].format(value)
-        return param
-
-    def get_readable_param_name(self, param: str) -> str:
-        """
-        Returns the readable long form of a parameter.
-
-        If the parameter does not match any predefined or flexible naming patterns,
-        logs a warning and returns the original parameter name.
-
-        Parameters:
-        - param (str): The fixed or flexible parameter name.
-
-        Returns:
-        - str: The long form of the parameter.
-        """
-        fixed_params: Dict[str, str] = {
-            "measurement_version_id": "MeasurementVersion ID",
-            "measurement_version_name": "MeasurementVersion Name",
-            "measurement_id": "Measurement ID",
-            "system_name": "System Name",
-            "l_min": "Length min. [mm] (start of measurement)",
-            "l_max": "Length max. [mm] (end of measurement)",
-            "f_null_offset": "Force Null-Offset [kN]",
-            "d_min": "Delta Length min. [mm] (=0)",
-            "d_max": "Delta Length max. [mm]",
-            "e_min": "Elongation min. [%] (=0)",
-            "e_max": "Elongation max. [%]",
-            "pre_tension_load": "Pre-Tension-Load [kN]",
-            "get_e_at_pre_tension_load": "Elongation at Pre-Tension-Load",
-            "load_ztv": "Load-ZTV/MBL [kN]",
-            "f_min": "Force min. [kN]",
-            "f_max": "Force max. [kN]",
-            "get_e_at_f_max": "Elongation at Force max. [%]",
-            "n": "n-values (n)"
-        }
-
-        long_name = fixed_params.get(param, None)
-        if long_name:
-            return long_name
-        long_name = self._get_readable_param_name_flex(param)
-        if long_name == param:
-            logger.warning(f"Parameter name '{param}' could not be mapped to a long name.")
-        return long_name
-
-    # Plotting #
+    # Plotting
     def plot_filter_data(self, data: pd.DataFrame = None, p: str = "plt"):
         if p == "plt":
             fig = plt_filter_data(data)
@@ -685,9 +691,9 @@ class MeasurementVersion(BaseClass):
         data = data or self.data
 
         if p == "plt":
-            fig = plt_f_vs_e(data, plot_raw)
+            fig = plt_f_vs_e(data, plot_raw, self.system_name)
         else:
-            fig = plotly_f_vs_e(data, plot_raw)
+            fig = plotly_f_vs_e(data, plot_raw, self.system_name)
 
         plot_manager = self.get_plot_manager()
         filename = f'm_id_{self.measurement_id}_mv_id_{self.measurement_version_id}'
@@ -703,12 +709,11 @@ class MeasurementVersion(BaseClass):
             raise ValueError(f"Error getting config: {e}")
 
     @property
-    def system_name(self) -> str:
-        try:
-            system_name = self.measurement.system.system
-            return system_name
-        except Exception as e:
-            raise ValueError(f"Error getting system_name: {e}")
+    def system_name(self) -> Optional[str]:
+        if self.measurement is None or self.measurement.system is None:
+            logger.error("Measurement or System is not available")
+            return None
+        return getattr(self.measurement.system, "system", None)
 
     @property
     def left_head(self) -> int:
@@ -818,3 +823,52 @@ class MeasurementVersion(BaseClass):
     @property
     def count(self):
         return self.data.shape[0]
+
+    @property
+    def brand(self) -> Optional[str]:
+        if self.measurement is None or self.measurement.system is None or self.measurement.system.brand is None:
+            logger.error("Measurement, System or Brand is not available")
+            return None
+        return getattr(self.measurement.system.brand, "brand_short", None)
+
+    @property
+    def expansion_insert_count(self) -> Optional[int]:
+        if self.measurement is None:
+            logger.error("Measurement is not available")
+            return None
+        return getattr(self.measurement, "expansion_insert_count", None)
+
+    @property
+    def shock_absorber_count(self) -> Optional[int]:
+        if self.measurement is None or self.measurement.system is None:
+            logger.error("Measurement or System is not available")
+            return None
+        return getattr(self.measurement.system, "shock_absorber_count", None)
+
+    @property
+    def shock_absorber_l_delta(self) -> Optional[float]:
+        try:
+            shock_absorber_l1 = getattr(self.measurement, "shock_absorber_l1", None)
+            shock_absorber_l2 = getattr(self.measurement, "shock_absorber_l2", None)
+
+            if shock_absorber_l1 is None or shock_absorber_l2 is None:
+                return None
+
+            shock_absorber_l_delta = shock_absorber_l2 - shock_absorber_l1
+            return shock_absorber_l_delta
+        except Exception as e:
+            raise ValueError(f"Error getting shock_absorber_l_delta: {e}")
+
+    @property
+    def failure_loc(self) -> Optional[str]:
+        if self.measurement is None:
+            logger.error("Measurement is not available")
+            return None
+        return getattr(self.measurement, "failure_loc", None)
+
+    @property
+    def note(self) -> Optional[str]:
+        if self.measurement is None:
+            logger.error("Measurement is not available")
+            return None
+        return getattr(self.measurement, "note", None)

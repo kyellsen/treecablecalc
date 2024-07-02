@@ -12,10 +12,10 @@ class MaterialAdd(BaseClass):
     """
     __tablename__ = 'MaterialAdd'
 
-    material_type_id = Column(Integer, ForeignKey('MaterialType.material_type_id'), nullable=False)
+    material_type_id = Column(Integer, ForeignKey('MaterialType.material_type_id'), nullable=True)
     material_add_id = Column(Integer, primary_key=True, autoincrement=True)
-    producer_id = Column(Integer, ForeignKey('Producer.producer_id'), nullable=False)
-    brand_id = Column(Integer, ForeignKey('Brand.brand_id'), nullable=False)
+    producer_id = Column(Integer, ForeignKey('Producer.producer_id'), nullable=True)
+    brand_id = Column(Integer, ForeignKey('Brand.brand_id'), nullable=True)
     material_add = Column(String)
     load_ztv = Column(Integer)
     date = Column(DateTime)

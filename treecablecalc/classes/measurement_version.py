@@ -7,7 +7,7 @@ from sqlalchemy import LargeBinary
 
 from ..common_imports.imports_classes import *
 
-from ..utils.polyfit import polyfit_with_np, add_zeros, add_min_values
+from ..utils.polyfit import polyfit_with_np, add_interpolated_values#, add_zeros #, add_min_values
 from ..plotting.plot_measurement_version import plt_filter_data, plt_extrema, plt_select_data, plt_f_vs_e
 from ..plotting.plot_measurement_version import plotly_filter_data, plotly_f_vs_e
 from ..plotting.plot_polyfit import plt_polyfit
@@ -211,10 +211,10 @@ class MeasurementVersion(BaseClass):
                 data['raw_d'] = data['d'].astype(np.float32)
                 data['raw_e'] = data['e'].astype(np.float32)
 
-            logger.debug(f"{self} - Features successfully")
+            logger.debug(f"Features successfully for {self}")
 
         except Exception as e:
-            logger.error(f"{self} - Features Error, e: {e}")
+            logger.error(f"Features Error, e: {e}, for {self}")
             return None
 
         if inplace:
@@ -225,88 +225,162 @@ class MeasurementVersion(BaseClass):
 
         return data
 
-    def calc_extrema(self, plot=True, inplace=True) -> Tuple[pd.DatetimeIndex, pd.DatetimeIndex, pd.Timestamp]:
-        data = self.data["d"]
+    def calc_extrema(self, inplace: bool = True) -> Optional[Tuple[pd.DatetimeIndex, pd.DatetimeIndex, pd.Timestamp]]:
+        """
+        Calculate the extrema (peaks and valleys) in the displacement data and the first drop in force.
 
-        peak_height = self.measurement.peak_height or self.config.peak_height
-        peak_prominence = self.measurement.peak_prominence or self.config.peak_prominence
-        peak_distance = self.measurement.peak_distance or self.config.peak_distance
-        peak_width = self.measurement.peak_width or self.config.peak_width
-        valley_height = self.measurement.valley_height or self.config.valley_height
-        valley_prominence = self.measurement.valley_prominence or self.config.valley_prominence
-        valley_distance = self.measurement.valley_distance or self.config.valley_distance
-        valley_width = self.measurement.valley_width or self.config.valley_width
+        :param inplace: Whether to save the results in the instance.
+        :return: A tuple containing the indices of the peaks, valleys, and the first drop in force.
+        """
+        try:
+            data_d = self.data["d"]
+            data_f = self.data["f"]
 
-        peaks, _ = find_peaks(np.array(data),
-                              height=peak_height,
-                              prominence=peak_prominence,
-                              distance=peak_distance,
-                              width=peak_width)
+            # Retrieve configuration parameters
+            peak_params = {
+                'height': self.measurement.peak_height or self.config.peak_height,
+                'prominence': self.measurement.peak_prominence or self.config.peak_prominence,
+                'distance': self.measurement.peak_distance or self.config.peak_distance,
+                'width': self.measurement.peak_width or self.config.peak_width
+            }
+            valley_params = {
+                'height': self.measurement.valley_height or self.config.valley_height,
+                'prominence': self.measurement.valley_prominence or self.config.valley_prominence,
+                'distance': self.measurement.valley_distance or self.config.valley_distance,
+                'width': self.measurement.valley_width or self.config.valley_width
+            }
 
-        peaks_index = data.index[peaks]
+            # Find peaks in displacement data
+            peaks, _ = find_peaks(data_d.values, **peak_params)
+            peaks_index = data_d.index[peaks]
 
-        if len(peaks_index) != 3:
-            logger.warning(
-                f"mv_id: '{self.measurement_version_id}' found '{len(peaks_index)}' Peaks: {peaks_index.values}")
-        else:
-            logger.debug(f"mv_id: '{self.measurement_version_id}' found exactly 3 Peaks: {peaks_index.values}")
+            if len(peaks_index) != 3:
+                logger.warning(
+                    f"mv_id: '{self.measurement_version_id}' found '{len(peaks_index)}' Peaks: {peaks_index.values}")
+            else:
+                logger.debug(f"mv_id: '{self.measurement_version_id}' found exactly 3 Peaks: {peaks_index.values}")
 
-        valleys, _ = find_peaks(np.array(data * -1),
-                                height=valley_height,
-                                prominence=valley_prominence,
-                                distance=valley_distance,
-                                width=valley_width)
+            # Find valleys in displacement data
+            valleys, _ = find_peaks(-data_d.values, **valley_params)
+            valleys_index = data_d.index[valleys]
 
-        valleys_index = data.index[valleys]
+            if len(valleys_index) != 3:
+                logger.warning(
+                    f"mv_id: '{self.measurement_version_id}' found '{len(valleys_index)}' Valleys: {valleys_index.values}")
+            else:
+                logger.debug(f"mv_id: '{self.measurement_version_id}' found exactly 3 Valleys: {valleys_index.values}")
 
-        if len(valleys_index) != 3:
-            logger.warning(
-                f"mv_id: '{self.measurement_version_id}' found '{len(valleys_index)}' Valleys: {valleys_index.values}")
-        else:
-            logger.debug(f"mv_id: '{self.measurement_version_id}' found exactly 3 Valleys: {valleys_index.values}")
+            # Calculate the first drop in force
+            pre_tension_load_threshold = self.pre_tension_load * 1.1
+            data_above_threshold = data_f[data_f > pre_tension_load_threshold]
 
-        pre_tension_load = self.pre_tension_load * 1.1
-        data = self.data["f"]
-        data_above_threshold = data[data > pre_tension_load]
+            first_drop_params = {
+                'height': self.config.first_drop_peak_height,
+                'prominence': self.config.first_drop_peak_prominence,
+                'distance': self.config.first_drop_peak_distance,
+                'width': self.config.first_drop_peak_width
+            }
 
-        peak_height = self.config.first_drop_peak_height
-        peak_prominence = self.config.first_drop_peak_prominence
-        peak_distance = self.config.first_drop_peak_distance
-        peak_width = self.config.first_drop_peak_width
+            peaks_first_drop, _ = find_peaks(data_above_threshold.values, **first_drop_params)
+            peaks_first_drop_index = data_above_threshold.index[peaks_first_drop]
 
-        peaks_first_drop, _ = find_peaks(np.array(data_above_threshold),
-                                         height=peak_height,
-                                         prominence=peak_prominence,
-                                         distance=peak_distance,
-                                         width=peak_width)
+            if not peaks_first_drop_index.empty:
+                first_drop_index = peaks_first_drop_index[0]
+                logger.debug(f"Found first_drop_index: {first_drop_index}")
+            else:
+                logger.warning(
+                    f"No peaks found above the pre-tension load threshold for mv_id: '{self.measurement_version_id}'")
+                return None
 
-        peaks_first_drop_index = data_above_threshold.index[peaks_first_drop]
-        logger.debug(f"peaks_first_drop_index: {peaks_first_drop_index.values}")
-        first_drop_index = peaks_first_drop_index[0]
-        logger.debug(f"Found first_drop_index: {first_drop_index}")
+            if inplace:
+                self.extrema = peaks_index, valleys_index, first_drop_index
 
-        if plot:
-            self.plot_extrema(self.data, peaks_index, valleys_index, first_drop_index)
+            return peaks_index, valleys_index, first_drop_index
 
-        if inplace:
-            self.extrema = peaks_index, valleys_index, first_drop_index
-
-        return peaks_index, valleys_index, first_drop_index
+        except Exception as e:
+            logger.error(f"Error calculating extrema for {self}: {e}")
+            return None
 
     @property
-    def extrema(self):
-        if hasattr(self, '_extrema') and self._extrema_tuple is not None:
-            return pickle.loads(self._extrema_tuple)
+    def extrema(self) -> Optional[Tuple[pd.DatetimeIndex, pd.DatetimeIndex, pd.Timestamp]]:
+        if self._extrema_tuple is not None:
+            try:
+                return pickle.loads(self._extrema_tuple)
+            except pickle.PickleError as e:
+                logger.error(f"Error loading extrema for {self}: {e}")
+                return None
         else:
-            return self.calc_extrema(plot=False, inplace=True)
+            return self.calc_extrema(inplace=True)
 
     @extrema.setter
-    def extrema(self, extrema: Tuple):
-        """Serialisiert das Pipeline-Objekt für die Speicherung in der Datenbank."""
-        self._extrema_tuple = pickle.dumps(extrema)
+    def extrema(self, extrema: Tuple[pd.DatetimeIndex, pd.DatetimeIndex, pd.Timestamp]):
+        """Serializes the extrema tuple for storage in the database."""
+        try:
+            self._extrema_tuple = pickle.dumps(extrema)
+        except pickle.PickleError as e:
+            logger.error(f"Error serializing extrema for {self}: {e}")
 
-    def select_inc_preload(self, selection_until: str = "f_max", plot: bool = True, inplace: bool = False,
-                           auto_commit: bool = False):
+    def correct_elongation(self, lower_percent: float = 0.1, inplace: bool = True, auto_commit: bool = True):
+        """
+        Corrects elongation values based on the lower percentage of force values.
+
+        Parameters:
+        lower_percent (float): The percentage of the lower data to be used for correction calculation (between 0 and 1).
+        inplace (bool): If True, the correction is applied to the original data.
+        auto_commit (bool): If True, the changes are automatically committed to the database.
+
+        Returns:
+        None
+        """
+
+        logger.debug("Starting correct_elongation method")
+
+        data = self.data.copy()
+
+        try:
+            # Check if the percentage is valid
+            if not (0 < lower_percent <= 1):
+                raise ValueError("The lower_percent must be between 0 and 1.")
+        except ValueError as ve:
+            logger.error(f"ValueError: {ve}")
+            return None
+
+        try:
+            # Sort the data by force to determine the lower percentage of data
+            df_sorted = data.sort_values(by='f')
+            num_points = len(df_sorted)
+            lower_index = int(lower_percent * num_points)
+            lower_data = df_sorted.iloc[:lower_index]
+
+            # Fit a line (1st order polynomial) to the lower percentage of data
+            coefficients = np.polyfit(lower_data['f'], lower_data['e'], 1)
+            polynomial = np.poly1d(coefficients)
+
+            # Extrapolate to calculate the correction value
+            # Set force to 0 to calculate the elongation at this point
+            correction_value = polynomial(0)
+        except Exception as e:
+            logger.error(f"An error occurred during correction calculation: {e}")
+            correction_value = 0
+
+        # Correct the elongation values
+        data['e'] = data['e'] - correction_value
+        logger.debug(f"Correction value: {correction_value}")
+
+        if inplace:
+            self.data = data
+
+        if auto_commit:
+            self.get_database_manager().commit()
+
+        logger.debug("Completed correct_elongation method successfully")
+        return None
+
+    def select_inc_preload(self, selection_until: str = "f_max", plot: bool = True, inplace: bool = True,
+                           auto_commit: bool = True):
+        logger.debug(
+            f"Starting select_inc_preload: selection_until={selection_until}, "
+            f"plot={plot}, inplace={inplace}, auto_commit={auto_commit} - {self}")
         data = self.data.copy()
 
         if selection_until not in self.config.valide_selection_until:
@@ -341,7 +415,10 @@ class MeasurementVersion(BaseClass):
         return data_select
 
     def select_exc_preload(self, selection_until: str = "f_max", close_gap: bool = True,
-                           plot: bool = True, inplace: bool = False, auto_commit: bool = False):
+                           plot: bool = True, inplace: bool = True, auto_commit: bool = True):
+        logger.debug(
+            f"Starting select_exc_preload: selection_until={selection_until}, "
+            f"plot={plot}, inplace={inplace}, auto_commit={auto_commit} - {self}")
         data = self.data.copy()
 
         if selection_until not in self.config.valide_selection_until:
@@ -392,6 +469,7 @@ class MeasurementVersion(BaseClass):
 
     @staticmethod
     def select_until_f_max(data: pd.DataFrame) -> pd.DataFrame:
+        logger.debug(f"starting select_until_f_max")
         # Erhalte den DateTime-Indexwert für das Maximum von 'f'
         max_f_datetime = data['f'].idxmax()
 
@@ -400,6 +478,7 @@ class MeasurementVersion(BaseClass):
         return select_data
 
     def select_until_first_drop(self, data: pd.DataFrame) -> pd.DataFrame:
+        logger.debug(f"starting select_until_first_drop")
         # Erhalte den DateTime-Indexwert für das Maximum von 'f'
         _, _, first_drop = self.extrema
 
@@ -408,7 +487,7 @@ class MeasurementVersion(BaseClass):
 
         return select_data
 
-    def fit_model(self, add_zeros_n: int = 1000, degree_min: int = 3, degree_max: int = 15,
+    def fit_model(self, add_interpolated_n: int = 250, degree_min: int = 3, degree_max: int = 11,
                   desired_quality_r2: float = .9995,
                   plot: bool = True, inplace: bool = True, auto_commit: bool = True) -> CableModel:
         try:
@@ -416,9 +495,9 @@ class MeasurementVersion(BaseClass):
             x = data["f"].copy()
             y = data["e"].copy()
 
-            if add_zeros_n > 0:
-                x = add_min_values(x, add_zeros_n)
-                y = add_zeros(y, add_zeros_n)
+            if add_interpolated_n > 0:
+                x = add_interpolated_values(x, add_interpolated_n)
+                y = add_interpolated_values(y, add_interpolated_n)
 
             cable_model = polyfit_with_np(
                 x, y, degree_min, degree_max, desired_quality_r2)
@@ -426,7 +505,7 @@ class MeasurementVersion(BaseClass):
             logger.info(f"{self} - Successfully fitted CableModel: {cable_model}")
 
             if plot:
-                fig = plt_polyfit(x, y, cable_model)
+                fig = plt_polyfit(elongation=y, force=x, cable_model=cable_model)
 
                 plot_manager = self.get_plot_manager()
                 filename = f'm_id_{self.measurement_id}_mv_id_{self.measurement_version_id}'
@@ -560,8 +639,8 @@ class MeasurementVersion(BaseClass):
             "measurement_version_id": getattr(self, "measurement_version_id", None),
             "measurement_version_name": getattr(self, "measurement_version_name", None),
             "measurement_id": getattr(self, "measurement_id", None),
-            "system_name": getattr(self, "system", None),
-            "brand": getattr(self, "brand_short", None),
+            "system_name": getattr(self, "system_name", None),
+            "brand": getattr(self, "brand", None),
             "selection_mode": getattr(self, "selection_mode", None),
             "selection_until": getattr(self, "selection_until", None),
             "filter_flag": getattr(self, "filter_flag", None),
@@ -577,7 +656,7 @@ class MeasurementVersion(BaseClass):
             "get_e_at_f_max": self.get_e_at_f_max(method),
             "count": getattr(self, "count", None),
             "expansion_insert_count": getattr(self, "expansion_insert_count", None),
-            "shock_absorber_count": getattr(self.system, "shock_absorber_count", None),
+            "shock_absorber_count": getattr(self, "shock_absorber_count", None),
             "shock_absorber_l_delta": getattr(self, "shock_absorber_l_delta", None),
             "failure_loc": getattr(self, "failure_loc", None),
             "note": getattr(self, "note", None),
@@ -672,15 +751,22 @@ class MeasurementVersion(BaseClass):
         subdir = f"{self.measurement_version_name}/filter_{p}"
         plot_manager.save_plot(fig, filename, subdir)
 
-    def plot_extrema(self, data: pd.DataFrame, peaks: pd.DatetimeIndex, valleys: pd.DatetimeIndex,
-                     first_drop: pd.DatetimeIndex, p="plt"):
-        fig = plt_extrema(data, peaks, valleys, first_drop)
-        plot_manager = self.get_plot_manager()
-        filename = f'm_id_{self.measurement_id}_mv_id_{self.measurement_version_id}'
-        subdir = f"{self.measurement_version_name}/extrema_{p}"
-        plot_manager.save_plot(fig, filename, subdir)
+    def plot_extrema(self, p="plt"):
+        try:
+            data = self.data
+            peaks_index, valleys_index, first_drop_index = self.extrema
+            fig = plt_extrema(data, peaks_index, valleys_index, first_drop_index)
+            plot_manager = self.get_plot_manager()
+            filename = f'm_id_{self.measurement_id}_mv_id_{self.measurement_version_id}'
+            subdir = f"{self.measurement_version_name}/extrema_{p}"
+            plot_manager.save_plot(fig, filename, subdir)
+            logger.info(f"Extrema plot saved successfully to {subdir}/{filename}")
+        except Exception as e:
+            logger.error(f"Error plotting extrema for {self}: {e}")
 
     def plot_select(self, data, data_select, p="plt", subdir: str = None):
+        logger.debug(f"starting plot_select")
+
         fig = plt_select_data(data, data_select)
         plot_manager = self.get_plot_manager()
         filename = f'm_id_{self.measurement_id}_mv_id_{self.measurement_version_id}'
@@ -688,6 +774,7 @@ class MeasurementVersion(BaseClass):
         plot_manager.save_plot(fig, filename, subdir)
 
     def plot_f_vs_e(self, data: pd.DataFrame = None, plot_raw: bool = True, p="plt"):
+        logger.debug(f"starting plot_f_vs_e")
         data = data or self.data
 
         if p == "plt":

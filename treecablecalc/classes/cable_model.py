@@ -52,3 +52,17 @@ class CableModel(BaseClass):
         return (f"CableModel quality_r2={quality_r2_str} (R^2), "
                 f"lower_bound={lower_bound_str}, "
                 f"upper_bound={upper_bound_str})")
+
+    def extend_to_degree(self, degree: int) -> np.poly1d:
+        """
+        Extend the polynomial to the specified degree by padding with zeros.
+
+        :param degree: The degree to extend the polynomial to.
+        :return: The extended polynomial.
+        """
+        if self.model.order < degree:
+            extended_coeffs = np.zeros(degree + 1)
+            extended_coeffs[-(self.model.order + 1):] = self.model.coeffs
+            extended_poly = np.poly1d(extended_coeffs)
+            return extended_poly
+        return self.model

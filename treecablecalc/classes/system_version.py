@@ -4,6 +4,7 @@ from ..common_imports.imports_classes import *
 from .cable_model import CableModel
 
 from ..plotting.plot_average_poly1d import plt_average_poly1d
+from ..plotting.plot_cable_models import plot_cable_models, plot_cable_models_difference
 
 logger = get_logger(__name__)
 
@@ -186,7 +187,8 @@ class SystemVersion(BaseClass):
         else:
             logger.error(f"No e_by_f_method: {e_by_f_method}, use 'interp1d' or 'poly1d'")
             return
-        logger.info(f"{self}: Successfully calculated parameters from measurement versions using method '{e_by_f_method}'.")
+        logger.info(
+            f"{self}: Successfully calculated parameters from measurement versions using method '{e_by_f_method}'.")
         return self
 
     def merge_cable_models(self, plot: bool = True, inplace: bool = True, auto_commit: bool = True) -> Optional[
@@ -228,6 +230,83 @@ class SystemVersion(BaseClass):
         logger.debug(f"Successfully merged cable models with lower_bound={lower_bound}, upper_bound={upper_bound}.")
 
         return avg_cable_model
+
+    @classmethod
+    def plot_multi_cable_models(cls, system_versions: List['SystemVersion'], force_max: float = 40):
+        """
+        Compare the avg_cable_model polynomials of multiple SystemVersion instances.
+
+        :param system_versions: List of SystemVersion instances
+        :return: The matplotlib Figure object
+        """
+        logger.debug("Starting plot_multi_cable_models")
+
+        if not system_versions:
+            logger.error("No SystemVersion instances provided for comparison.")
+            return None
+
+        cable_models = [(sv.cable_model, sv) for sv in system_versions if sv.cable_model is not None]
+
+        if not cable_models:
+            logger.warning("No valid avg_cable_model polynomials found in the provided SystemVersion instances.")
+            return None
+
+        max_degree = max(cm.model.order for cm, _ in cable_models)
+
+        try:
+            fig = plot_cable_models(cable_models, max_degree, force_max)
+            logger.info("Successfully created the polynomial comparison plot.")
+
+            # Convert list of integers to a string suitable for a filename
+            system_version_ids = [sv.system_version_id for sv in system_versions if sv.cable_model is not None]
+            ids_str = "_".join(map(str, system_version_ids))
+            filename = f'system_version_ids_{ids_str}'
+            subdir = "plot_multi_cable_models"
+            plot_manager = cls.get_plot_manager()
+            plot_manager.save_plot(fig, filename, subdir)
+            logger.debug(f"Plot saved successfully to {subdir}/{filename}")
+
+        except RuntimeError as e:
+            logger.error(e)
+            return None
+
+        return fig
+
+    @classmethod
+    def plot_difference_in_cable_models(cls, system_version_1: 'SystemVersion', system_version_2: 'SystemVersion',
+                                        force_max: float = 40, skale_ax2_ref: int = 400):
+        """
+        Compare the avg_cable_model polynomials of exactly two SystemVersion instances by plotting their differences.
+
+        :param system_version_1: First SystemVersion instance
+        :param system_version_2: Second SystemVersion instance
+        :param force_max
+        :param skale_ax2_ref
+        :return: The matplotlib Figure object
+        """
+        logger.debug("Starting plot_difference_in_cable_models")
+
+        if not system_version_1 or not system_version_2:
+            logger.error("Both SystemVersion instances are required for this comparison.")
+            return None
+
+        max_degree = max(system_version_1.cable_model.model.order, system_version_2.cable_model.model.order)
+
+        try:
+            fig = plot_cable_models_difference(system_version_1, system_version_2, max_degree, force_max, skale_ax2_ref)
+            logger.info("Successfully created the polynomial difference plot.")
+
+            filename = f'system_version_ids_{system_version_1.system_version_id}_vs_{system_version_2.system_version_id}'
+            subdir = "plot_difference_in_cable_models"
+            plot_manager = cls.get_plot_manager()
+            plot_manager.save_plot(fig, filename, subdir)
+            logger.debug(f"Plot saved successfully to {subdir}/{filename}")
+
+        except RuntimeError as e:
+            logger.error(e)
+            return None
+
+        return fig
 
     @staticmethod
     def average_poly1d(poly_list: List[np.poly1d]) -> np.poly1d:
@@ -306,4 +385,3 @@ class SystemVersion(BaseClass):
         filename = f'system_id_{self.system.system_id}_svn_{self.system_version_name}'
         subdir = f"{self.system_version_name}/average_poly1d"
         plot_manager.save_plot(fig, filename, subdir)
-

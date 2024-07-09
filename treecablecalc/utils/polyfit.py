@@ -7,10 +7,9 @@ from kj_core.utils.runtime_manager import dec_runtime
 from ..classes.cable_model import CableModel
 
 
-def polyfit_with_np(x: pd.Series, y: pd.Series, degree_min: int = 1, degree_max: int = 10,
-                    desired_quality: float = 0.9999):
+def polyfit_with_np(x: pd.Series, y: pd.Series, degree_min: int, degree_max: int,
+                    desired_quality: float):
     best_quality_r2 = -np.inf
-    best_degree = None
     best_coeffs = None
 
     for degree in range(degree_min, degree_max + 1):
@@ -58,22 +57,53 @@ def add_zeros(x: pd.Series, n: int) -> pd.Series:
     return pd.concat([x_zeros, x], ignore_index=True)
 
 
-def add_min_values(x: pd.Series, n: int) -> pd.Series:
+def add_interpolated_values(x: pd.Series, n: int) -> pd.Series:
     """
-    Adds a specified number of minimal values of the series to the beginning of a pandas Series.
+    Adds a specified number of interpolated values to the beginning of a pandas Series.
+
+    The values are interpolated between 0 and the smallest positive value in the series.
 
     Args:
         x (pd.Series): Input series.
-        n (int): Number of minimal values to add.
+        n (int): Number of interpolated values to add.
 
     Returns:
-        pd.Series: Modified series with minimal values prepended.
+        pd.Series: Modified series with interpolated values prepended.
 
     Raises:
-        ValueError: If n is not greater than 0.
+        ValueError: If n is not greater than 0 or if there are no positive values in the series.
     """
     if n <= 0:
         raise ValueError("Parameter n must be > 0")
-    min_value = x.min()
-    min_values = pd.Series([min_value] * n)
-    return pd.concat([min_values, x], ignore_index=True)
+
+    positive_values = x[x > 0]
+    if positive_values.empty:
+        raise ValueError("No positive values in the series to interpolate.")
+
+    smallest_positive = positive_values.min()
+    interpolated_values = np.linspace(0, smallest_positive, num=n, endpoint=False)
+
+    interpolated_series = pd.Series(interpolated_values)
+    return pd.concat([interpolated_series, x], ignore_index=True)
+
+#
+#
+# def add_min_values(x: pd.Series, n: int) -> pd.Series:
+#     """
+#     Adds a specified number of minimal values of the series to the beginning of a pandas Series.
+#
+#     Args:
+#         x (pd.Series): Input series.
+#         n (int): Number of minimal values to add.
+#
+#     Returns:
+#         pd.Series: Modified series with minimal values prepended.
+#
+#     Raises:
+#         ValueError: If n is not greater than 0.
+#     """
+#     if n <= 0:
+#         raise ValueError("Parameter n must be > 0")
+#     min_value = x.min()
+#     min_values = pd.Series([min_value] * n)
+#     return pd.concat([min_values, x], ignore_index=True)

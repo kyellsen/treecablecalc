@@ -1,4 +1,5 @@
 from ..common_imports.imports_classes import *
+from ..plotting.plot_multi_measurement_versions import plt_multi_measurement_versions
 
 from .cable import Cable
 from .sling import Sling
@@ -244,4 +245,46 @@ class System(BaseClass):
 
         logger.info(f"New system_version '{version_name}' created: '{new_system_version}'")
         return new_system_version
+
+    @classmethod
+    def plot_measurement_versions_by_system_ids(cls, system_versions: List, system_ids: List[int],
+                                                label_attributes: Dict[str, str] = None):
+        """
+        Filters SystemVersion instances by a list of system_id, extracts their MeasurementVersion instances,
+        and plots the data.
+
+        Args:
+            system_versions (List[SystemVersion]): List of SystemVersion instances.
+            system_ids (List[int]): List of system_id values to filter by.
+            label_attributes (Dict[str, str]): Dictionary describing which attributes to include in the label string and their display names.
+        """
+        logger.info(f"Starting plot_measurement_versions_by_system_ids with system_ids: {system_ids}")
+
+        # Filter SystemVersion instances by the given system_ids
+        filtered_sys_versions = [sv for sv in system_versions if sv.system_id in system_ids]
+        logger.debug(f"Filtered {len(filtered_sys_versions)} SystemVersion instances matching system_ids: {system_ids}")
+
+        # Extract all MeasurementVersion instances from the filtered SystemVersion instances
+        mv_list_selected = []
+        for sv in filtered_sys_versions:
+            mv_list_selected.extend(sv.measurement_version)
+        logger.debug(f"Extracted {len(mv_list_selected)} MeasurementVersion instances from the filtered SystemVersion instances")
+
+        # Plot the data if there are any MeasurementVersion instances
+        if mv_list_selected:
+            try:
+                fig = plt_multi_measurement_versions(mv_list_selected, label_attributes)
+                logger.info(f"Successfully created plot for MeasurementVersion instances for system_ids {system_ids}")
+
+                # Convert list of integers to a string suitable for a filename
+                system_ids_str = "_".join(map(str, system_ids))
+                filename = f'system_ids_{system_ids_str}'
+                subdir = f"plt_multi_mv"
+                plot_manager = cls.get_plot_manager()
+                plot_manager.save_plot(fig, filename, subdir)
+                logger.debug(f"Plot saved successfully to {subdir}/{filename}")
+            except Exception as e:
+                logger.error(f"Error occurred while plotting MeasurementVersion instances: {e}", exc_info=True)
+        else:
+            logger.warning(f"No MeasurementVersion instances found for system_ids {system_ids}")
 

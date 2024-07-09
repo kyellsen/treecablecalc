@@ -192,7 +192,7 @@ class Measurement(BaseClass):
 
     def load_with_features(self, selection_mode: str = "default", selection_until: str = "end",
                            measurement_version_name: str = None, update_existing=False,
-                           filter_data=True, null_offset_f=True, fit_model=True, plot_filter=False, plot_extrema=False,
+                           filter_data=True, null_offset_f=True, correct_elongation=True, fit_model=True, plot_filter=False, plot_extrema=False,
                            plot_selection=False, plot_f_vs_e=False, plot_fit_model=False) -> Optional[MeasurementVersion]:
         """
         Load a MeasurementVersion object with specified features and configurations.
@@ -213,6 +213,8 @@ class Measurement(BaseClass):
             Whether to apply filtering on the data. Default is True.
         null_offset_f : bool, optional
             Whether to nullify offset forces. Default is True.
+        correct_elongation:
+
         fit_model : bool, optional
             Whether to fit poly1d model to data. Only available if selection_until is "first_drop". Default is True.
         plot_filter : bool, optional
@@ -268,7 +270,9 @@ class Measurement(BaseClass):
         mv.calc_features(set_raw=True, inplace=True, auto_commit=True)
 
         if selection_mode in ["inc_preload", "exc_preload"]:
-            mv.calc_extrema(plot=plot_extrema, inplace=True)
+            if plot_extrema:
+                mv.plot_extrema()
+
 
             if selection_mode == "inc_preload":
                 mv.select_inc_preload(selection_until=selection_until,
@@ -276,8 +280,13 @@ class Measurement(BaseClass):
             if selection_mode == "exc_preload":
                 mv.select_exc_preload(selection_until=selection_until, close_gap=True,
                                       plot=plot_selection, inplace=True, auto_commit=True)
+
             # Again calc_features after selection
             mv.calc_features(set_raw=False, inplace=True, auto_commit=True)
+
+            if correct_elongation:
+                # After calc_features shift e in correct place
+                mv.correct_elongation()
 
         if plot_f_vs_e:
             mv.plot_f_vs_e(plot_raw=True)

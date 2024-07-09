@@ -204,5 +204,7 @@ class CableCalculatorVersion(BaseClass):
 
         plot_manager = self.get_plot_manager()
         filename = f'system_id_{self.cable_calculator.system.system_id}_{self.cable_calculator.system.system}_{self.system_version.system_version_name}'
-        subdir = f"{self.system_version.system_version_name}/cable_calculator_version_plot_catenary_curve"
+        subdir = f"cable_calculator_version_plot_catenary_curve"
         plot_manager.save_plot(fig, filename, subdir)
+
+        return fig

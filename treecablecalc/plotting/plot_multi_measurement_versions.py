@@ -10,8 +10,8 @@ from typing import List, Dict
 from ..classes.measurement_version import MeasurementVersion
 
 
-def plt_multi_measurement_versions_data(measurement_versions: List[MeasurementVersion],
-                                        label_attributes: Dict[str, str] = None) -> plt.Figure:
+def plt_multi_measurement_versions(measurement_versions: List[MeasurementVersion],
+                                   label_attributes: Dict[str, str] = None) -> plt.Figure:
     """
     Plots elongation versus force for a list of MeasurementVersion instances, each with a unique color.
 
@@ -67,5 +67,4 @@ def plt_multi_measurement_versions_data(measurement_versions: List[MeasurementVe
     ax.legend()
 
     fig.tight_layout()
-    #plt.show()
     return fig

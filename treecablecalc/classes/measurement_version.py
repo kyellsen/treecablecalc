@@ -173,13 +173,25 @@ class MeasurementVersion(BaseClass):
 
         return data
 
-    def null_offset_f(self, mean_first_n: int = 9, inplace: bool = True, auto_commit: bool = True) -> Optional[
+    def null_offset_f(self, mean_first_n: int = None, inplace: bool = True, auto_commit: bool = True) -> Optional[
         Tuple[pd.DataFrame, float]]:
+        """
+        Applies a null offset to the 'f' column by subtracting the mean of the first 'mean_first_n' values.
+
+        Parameters:
+        - mean_first_n (int): Number of initial values to average for null offset. Defaults to config value if None.
+        - inplace (bool): If True, updates data in place. Defaults to True.
+        - auto_commit (bool): If True, commits changes to the database. Defaults to True.
+
+        Returns:
+        Tuple[pd.DataFrame, float]: The adjusted DataFrame and the calculated mean for null offset.
+        """
         data = self.data.copy()
         try:
+            mean_first_n = mean_first_n or self.config['null_offset_mean_first_n']
 
-            f_mean_first_10 = data['f'][:mean_first_n].mean()  # to reduce force to null at beginn
-            data['f'] = data['f'] - f_mean_first_10
+            f_mean_first_n = data['f'][:mean_first_n].mean()  # to reduce force to null at beginning
+            data['f'] = data['f'] - f_mean_first_n
 
             logger.debug(f"{self} - Nulloffset successfully")
 
@@ -189,12 +201,12 @@ class MeasurementVersion(BaseClass):
 
         if inplace:
             self.data = data
-            self.null_offset = f_mean_first_10
+            self.null_offset = f_mean_first_n
 
         if auto_commit:
             self.get_database_manager().commit()
 
-        return data, f_mean_first_10
+        return data, f_mean_first_n
 
     def calc_features(self, set_raw: bool = False, inplace: bool = True, auto_commit: bool = True) -> Optional[
         pd.DataFrame]:

@@ -273,7 +273,6 @@ class Measurement(BaseClass):
             if plot_extrema:
                 mv.plot_extrema()
 
-
             if selection_mode == "inc_preload":
                 mv.select_inc_preload(selection_until=selection_until,
                                       plot=plot_selection, inplace=True, auto_commit=True)

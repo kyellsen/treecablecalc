@@ -38,6 +38,8 @@ class Config(CoreConfig):
         filter_window_x = 11
         filter_window_f = 31
 
+        null_offset_mean_first_n = 10
+
         peak_height = 80
         peak_prominence = 10
         peak_distance = 50
